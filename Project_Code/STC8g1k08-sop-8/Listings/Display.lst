@@ -1,0 +1,154 @@
+C51 COMPILER V9.01   DISPLAY                                                               03/30/2023 21:11:44 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE DISPLAY
+OBJECT MODULE PLACED IN .\Objects\Display.obj
+COMPILER INVOKED BY: C:\keil5\C51\BIN\C51.EXE src\Display.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND PR
+                    -INT(.\Listings\Display.lst) TABS(2) OBJECT(.\Objects\Display.obj)
+
+line level    source
+
+   1          /**************************************************************************************************
+   2          //程序名称 ：数码管动态扫描（74HC595）
+   3          //应用芯片 ：
+   4          //设计单位 ：
+   5          //设计作者 ：Yanggang
+   6          //创建日期 ：2011年8月8日
+   7          //修改作者 ： 
+   8          //修改日期 ： 
+   9          //版本 ： V1.0
+  10          //版权 ：
+  11          //------------------------------------------------------------------------------------------------
+  12          //程序功能描述 ： 
+  13          //--------------
+  14          //--------------
+  15          //--------------
+  16          //------------------------------------------------------------------------------------------------
+  17          **************************************************************************************************/
+  18          
+  19          /**************************************************************************************************
+  20          ** 编译预处理 ：文件包含；宏定义；变量声明；函数声明
+  21          ** 应用描述 ：
+  22          ** 其他说明 ：无
+  23          **************************************************************************************************/
+  24          
+  25          /*---------------包含头文件--------------------*/
+  26          #include"Display.h"
+  27          
+  28          
+  29          /*---------------应用变量声明------------------*/
+  30          //unsigned char code DuanMa[10]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f};// 显示段码值0~9
+  31          //unsigned char code WeiMa[]={0xfe,0xfd,0xfb,0xf7,0xef,0xdf,0xbf,0x7f};//分别对应相应的数码管点亮,即位码
+  32          unsigned char code DuanMa[]={0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0xBF,0x83,0xC6,0xA1,0x86,0x
+             -8E,0xFF};// 显示段码值0~9
+  33          unsigned char code WeiMa[]={0x08,0x04,0x02,0x01};//分别对应相应的数码管点亮,即位码
+  34          
+  35          unsigned char TempData[4]; //存储显示值的全局变量
+  36          
+  37          //=====串行输入子函数======//
+  38          void In_595(uchar date) 
+  39          {
+  40   1        uchar j,temp;
+  41   1        temp=date;
+  42   1        for(j=0;j<8;j++)
+  43   1        {
+  44   2          SH_CP=0;
+  45   2          temp<<=1;
+  46   2          DS=CY;     //输入数据
+  47   2          SH_CP=1;   //上升沿移位
+  48   2          _nop_();
+  49   2          _nop_();
+  50   2          SH_CP=0;
+  51   2        }               
+  52   1      }
+  53          
+C51 COMPILER V9.01   DISPLAY                                                               03/30/2023 21:11:44 PAGE 2   
+
+  54          //=====并行输出子函数======//
+  55          void Out_595()
+  56          {
+  57   1        ST_CP=0;
+  58   1        _nop_();
+  59   1        _nop_();
+  60   1        ST_CP=1;   //上升沿移位
+  61   1        _nop_();
+  62   1        _nop_();
+  63   1        ST_CP=0;
+  64   1      }
+  65          void delay1ms(uint t)   
+  66          {
+  67   1        uchar x;
+  68   1        while(t--)for(x=120;x>0;x--);
+  69   1      }
+  70          void Rest_dis_temp()  //清除显示缓存区
+  71          {
+  72   1        TempData[0]=0x00;
+  73   1        TempData[1]=0x00;
+  74   1        TempData[2]=0x00;
+  75   1        TempData[3]=0x00;
+  76   1        delay1ms(20);
+  77   1      }
+  78          
+  79          void dis_temp(uint t)
+  80          {
+  81   1        if(Mode==0)
+  82   1        {
+  83   2          TempData[0]=DuanMa[t/100];
+  84   2          TempData[1]=DuanMa[t%100/10]|0x80;
+  85   2          TempData[2]=DuanMa[t%100%10];
+  86   2          TempData[3]=0x39;
+  87   2        }
+  88   1        if(Mode==1)
+  89   1        {
+  90   2          TempData[0]=0x00;
+  91   2          TempData[1]=DuanMa[t/10];
+  92   2          TempData[2]=DuanMa[t%10];
+  93   2          TempData[3]=0x00;
+  94   2        }
+  95   1        if(Mode==2)
+  96   1        {
+  97   2          TempData[0]=0x40;
+  98   2          TempData[1]=DuanMa[t/10];
+  99   2          TempData[2]=DuanMa[t%10];
+ 100   2          TempData[3]=0x40;   
+ 101   2        }
+ 102   1      
+ 103   1      }
+ 104          
+ 105          //======动态扫描程序======//
+ 106          void display()      
+ 107          { 
+ 108   1          static unsigned char i;
+ 109   1          
+ 110   1      //  for(i=0;i<4;i++)
+ 111   1        { 
+ 112   2          In_595(WeiMa[i]);    //位码串行输入595
+ 113   2          In_595(TempData[i]);    //段码串行输入595 
+ 114   2      //    In_595(DuanMa[i]);
+ 115   2          Out_595();     //刷新输出
+C51 COMPILER V9.01   DISPLAY                                                               03/30/2023 21:11:44 PAGE 3   
+
+ 116   2      //    delayms(1);
+ 117   2        }
+ 118   1      //  In_595(0x00); //位码串行输入595
+ 119   1      //  In_595(16);   //段码串行输入595   
+ 120   1      //  Out_595();    //刷新输出
+ 121   1      
+ 122   1        i++;
+ 123   1          if(i>=4)i=0;
+ 124   1              
+ 125   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    336    ----
+   CONSTANT SIZE    =     21    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      5    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,258 @@
+C51 COMPILER V9.01   MAIN                                                                  04/23/2023 15:59:06 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\keil5\C51\BIN\C51.EXE src\main.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND PRINT
+                    -(.\Listings\main.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          /*
+   2            工 程 功 能: 220V-TM1605调压控制
+   3            主 控 芯 片: STC8G1K08-sop-8
+   4            TM1602-KEY1: 切换输出电压
+   5            TM1602-KEY2: 挡位+1
+   6            TM1602-KEY3: 挡位—1
+   7          */
+   8          
+   9          /*引脚配置
+  10            过零点检测  = P3^2 
+  11            PWM输出信号 = P3^3
+  12            TM1605-CLK  = P5^4   
+  13            TM1605-DIO  = P5^5;
+  14          */
+  15          
+  16          #include"main.h"
+  17          
+  18          
+  19          #define FOSC 11059200L
+  20          #define T1MS (65536-FOSC/20000)      //1000 == 1ms
+  21          
+  22          //**********8级亮度调节***********************************
+  23          uchar code liangdu[]={0xFF,0x11,0x21,0x31,0x41,0x51,0x61,0x71,0x01};//1-8级亮度调节
+  24          uchar code duanma[]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f,
+  25                               0x77,0x7c,0x39,0x5e,0x79,0x71,0x80};
+  26                     //************共阴数码管显示0-F
+  27          
+  28          uchar Student_max_num; //班级最大人数
+  29          uchar Mode;        //模式
+  30          uint Time,Tms1,Tms2;         //自动关机时间
+  31          bit Stop_Start;      //停止_启动
+  32          uchar light;
+  33          unsigned char bdata dat; //dat是可位寻址的变量
+  34          
+  35          sbit dat7=dat^7;
+  36          sbit dat6=dat^6;
+  37          sbit dat5=dat^5;
+  38          sbit dat4=dat^4;
+  39          sbit dat3=dat^3;
+  40          sbit dat2=dat^2;
+  41          sbit dat1=dat^1;
+  42          sbit dat0=dat^0; //取出dat的各个位
+  43          
+  44                               
+  45          sbit IN_Data = P3^2;    //过零点信号输入
+  46          sbit PWM_Out = P3^3;    //PWM输出信号                 
+  47          sbit LEDS = P3^1;      //判断定时中断是否正常
+  48          sbit LEDLS = P3^0;     //判断外部中断是否正常
+  49          
+  50          uint TIME_INT = 0;
+  51          uint Data_s = 0;
+  52          long Time_SM = 0;
+  53          
+  54          bit LEDLS_D = 0;
+C51 COMPILER V9.01   MAIN                                                                  04/23/2023 15:59:06 PAGE 2   
+
+  55          
+  56          /*---------------应用函数声明------------------*/
+  57          void Systerm_init(void);   //系统初始化
+  58          void Control(void);       //键盘函数
+  59          void EXINT_Init(void);
+  60          void Timer0_Init(void);
+  61          
+  62          
+  63          void delay(uint t)   
+  64          {
+  65   1        uchar x;
+  66   1        while(t--)for(x=120;x>0;x--);
+  67   1      }
+  68          /******************************************************************
+  69           - 功能描述：主函数
+  70           - 隶属模块：无
+  71           - 函数属性：无
+  72           - 参数说明：无      
+  73           - 返回说明：无
+  74           - 注：无
+  75           ******************************************************************/
+  76          void main()
+  77          {
+  78   1        uint a=0;
+  79   1        uint d=0;
+  80   1        TM1650_Send(0x48,0x61);// 开启显示、1级亮度   
+  81   1        Mode=1;
+  82   1        
+  83   1        PWM_Out = 1;
+  84   1        EXINT_Init();
+  85   1        Timer0_Init();
+  86   1        P3M0 = 0x00; P3M1 = 0x00; 
+  87   1        P5M0 = 0x00; P5M1 = 0x00; 
+  88   1        //P1M0 = 0x02; P1M1 = 0x00; 
+  89   1      
+  90   1        LEDLS = 1;
+  91   1        Data_s = 1000;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[2]);TM1650_Send(0X6A,duanma[2]);TM1650_Send(
+             -0X6C,duanma[0]);
+  92   1        while(1)
+  93   1        {
+  94   2          
+  95   2          if(d == 0)
+  96   2          {
+  97   3            switch(a)
+  98   3            {
+  99   4              case 0: Data_s = 1000;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[2]);TM1650_Send(0X6A,duanma[2]);T
+             -M1650_Send(0X6C,duanma[0]); break;
+ 100   4              case 1: Data_s = 3100;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[1]);TM1650_Send(0X6A,duanma[8]);T
+             -M1650_Send(0X6C,duanma[0]); break;
+ 101   4              case 2: Data_s = 4800;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[1]);TM1650_Send(0X6A,duanma[2]);T
+             -M1650_Send(0X6C,duanma[0]); break;
+ 102   4              case 3: Data_s = 6040;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[0]);TM1650_Send(0X6A,duanma[8]);T
+             -M1650_Send(0X6C,duanma[0]); break;
+ 103   4              case 4: Data_s = 7420;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[0]);TM1650_Send(0X6A,duanma[4]);T
+             -M1650_Send(0X6C,duanma[8]); break;          
+ 104   4            }
+ 105   3          }   
+ 106   2          if(d != 0)
+ 107   2          {
+ 108   3            if(Time_SM < 10000)
+ 109   3            {
+ 110   4              switch(a)
+C51 COMPILER V9.01   MAIN                                                                  04/23/2023 15:59:06 PAGE 3   
+
+ 111   4              {
+ 112   5                case 0: Data_s = 1000;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[2]);TM1650_Send(0X6A,duanma[2]);
+             -TM1650_Send(0X6C,duanma[0]); break;
+ 113   5                case 1: Data_s = 3140;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[1]);TM1650_Send(0X6A,duanma[8]);
+             -TM1650_Send(0X6C,duanma[0]); break;
+ 114   5                case 2: Data_s = 4800;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[1]);TM1650_Send(0X6A,duanma[2]);
+             -TM1650_Send(0X6C,duanma[0]); break;
+ 115   5                case 3: Data_s = 6040;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[0]);TM1650_Send(0X6A,duanma[8]);
+             -TM1650_Send(0X6C,duanma[0]); break;
+ 116   5                case 4: Data_s = 7420;TM1650_Send(0x48,0x61);TM1650_Send(0X68,duanma[0]);TM1650_Send(0X6A,duanma[4]);
+             -TM1650_Send(0X6C,duanma[8]); break;     
+ 117   5              }
+ 118   4            }
+ 119   3            else{TM1650_Send(0x48,0x00);}
+ 120   3          }   
+ 121   2      
+ 122   2      
+ 123   2      //    Data_s = 4800;
+ 124   2          if(a > 4){a = 0;}
+ 125   2          dat=TM1650_Read_Button();                        //读取按键模式,有按键按下将返回一个8位是数据
+ 126   2          if(dat6==1)                                      //这个位置一应该就是有按键按下了
+ 127   2          {
+ 128   3            if(dat3==0 && dat4==0) {d = ~d;}   
+ 129   3            if(dat3==1 && dat4==0) 
+ 130   3            {
+ 131   4              if(d != 0)
+ 132   4              {
+ 133   5                a++;
+ 134   5              }
+ 135   4            }
+ 136   3            if(dat3==0 && dat4==1)  
+ 137   3            {
+ 138   4              if(d != 0)
+ 139   4              {
+ 140   5                a--;
+ 141   5              }
+ 142   4            } 
+ 143   3            while(dat6==1)dat=TM1650_Read_Button(); 
+ 144   3            dat=0XFF;
+ 145   3          }
+ 146   2        }
+ 147   1      
+ 148   1      }
+ 149          
+ 150          
+ 151          
+ 152          
+ 153          void EXINT_Init()
+ 154          {
+ 155   1        //PWM_Out = 0; // 初始设置P1.1为低电平 熄灭LED
+ 156   1        IT0 = 1; // 设置INT0的中断类型 (1:仅下降沿 0:上升沿和下降沿)
+ 157   1        EX0 = 1; // 使能INT0中断
+ 158   1        EA = 1;  // 打开总中断
+ 159   1      }
+ 160          
+ 161          ////50us
+ 162          void Timer0_Init(void)    //100??@11.0592MHz
+ 163          {
+ 164   1          AUXR |= 0x80;                   //???0?1T??
+ 165   1      //  AUXR &= 0x7f;                   //???0?12T??
+ 166   1      
+ 167   1          TMOD = 0x00;                    //????????0(16??????)
+C51 COMPILER V9.01   MAIN                                                                  04/23/2023 15:59:06 PAGE 4   
+
+ 168   1          TL0 = T1MS;                     //??????
+ 169   1          TH0 = T1MS >> 8;
+ 170   1          TR0 = 1;                        //???0????
+ 171   1          ET0 = 1;                        //?????0??
+ 172   1          EA = 1;
+ 173   1      }
+ 174          
+ 175          //外部中断服务函数
+ 176          void Exint0() interrupt 0 //INT0中断入口
+ 177          {
+ 178   1          PWM_Out = 1;
+ 179   1          TIME_INT = 1;   //标志位  
+ 180   1        if(LEDLS_D){LEDLS = ~LEDLS;}
+ 181   1      
+ 182   1      }
+ 183          
+ 184          //定时中断1服务函数
+ 185          void Time0() interrupt 1
+ 186          {   
+ 187   1        
+ 188   1        static uint i = 0;
+ 189   1        static uint x = 0;
+ 190   1        static uint CP_Time = 0;
+ 191   1      
+ 192   1        if(TIME_INT == 1)
+ 193   1        {
+ 194   2          i++;
+ 195   2          CP_Time = (Data_s + 2000) / 50;
+ 196   2          if(i == CP_Time)
+ 197   2          {
+ 198   3            PWM_Out = 0;// 
+ 199   3            TIME_INT = 0;
+ 200   3            i = 0;
+ 201   3          }
+ 202   2        }
+ 203   1        
+ 204   1        if(++x > 10000)
+ 205   1        {
+ 206   2          LEDLS_D = ~LEDLS_D;
+ 207   2          LEDS = ~LEDS;
+ 208   2          x = 0;
+ 209   2        }
+ 210   1        
+ 211   1        Time_SM++;  
+ 212   1        if(Time_SM > 20000){Time_SM = 0;}
+ 213   1        
+ 214   1      }
+ 215          
+ 216          
+ 217          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    849    ----
+   CONSTANT SIZE    =     26    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     24       4
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

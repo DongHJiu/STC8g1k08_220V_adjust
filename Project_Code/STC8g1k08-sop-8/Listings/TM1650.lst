@@ -1,0 +1,138 @@
+C51 COMPILER V9.01   TM1650                                                                04/23/2023 15:59:06 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE TM1650
+OBJECT MODULE PLACED IN .\Objects\TM1650.obj
+COMPILER INVOKED BY: C:\keil5\C51\BIN\C51.EXE src\TM1650.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND PRI
+                    -NT(.\Listings\TM1650.lst) TABS(2) OBJECT(.\Objects\TM1650.obj)
+
+line level    source
+
+   1          #include"TM1650.h"
+   2          
+   3          /*
+   4            数 据 写 入 步 骤：Start->Address->Data->Ack->Stop。
+   5          */
+   6          
+   7          /*
+   8            功    能：TM1650开始
+   9          */
+  10          void TM1650_Start(void)     
+  11          {
+  12   1        TM_SCL=1;//时钟
+  13   1        TM_SDA=1;
+  14   1        _nop_();
+  15   1        _nop_();
+  16   1        TM_SDA=0;
+  17   1        _nop_();
+  18   1        _nop_();
+  19   1        TM_SCL=0;
+  20   1      }
+  21          
+  22          /*
+  23            功    能：TM1650结束
+  24          */
+  25          void TM1650_Stop(void)    
+  26          {
+  27   1        TM_SCL=1;
+  28   1        TM_SDA=0;
+  29   1        _nop_();
+  30   1        _nop_();
+  31   1        TM_SDA=1;
+  32   1        _nop_();
+  33   1        _nop_();
+  34   1      }
+  35          /*
+  36            功    能：TM1650写字节
+  37          */
+  38          void TM1650_WriteByte(unsigned char date) 
+  39          {
+  40   1        unsigned char i;
+  41   1        
+  42   1        for(i=0;i<8;i++)
+  43   1        {
+  44   2          if(date&0x80)
+  45   2          {
+  46   3          TM_SDA=1;  
+  47   3          }
+  48   2          else
+  49   2          {
+  50   3          TM_SDA=0;
+  51   3          }
+  52   2          _nop_();
+  53   2          _nop_();
+  54   2          TM_SCL=1;
+C51 COMPILER V9.01   TM1650                                                                04/23/2023 15:59:06 PAGE 2   
+
+  55   2          date<<=1;
+  56   2          _nop_();
+  57   2          _nop_();
+  58   2          TM_SCL=0;  
+  59   2        }
+  60   1        TM_SDA=1;
+  61   1        _nop_();
+  62   1        _nop_();
+  63   1        TM_SCL=1;
+  64   1        _nop_();
+  65   1        _nop_();
+  66   1        TM_SCL=0;
+  67   1      }
+  68          /*
+  69            功    能：TM1650发送数据
+  70          */
+  71          void TM1650_Send(unsigned char date1,unsigned char date2)
+  72          {
+  73   1        TM1650_Start();
+  74   1        TM1650_WriteByte(date1);
+  75   1        TM1650_WriteByte(date2);
+  76   1        TM1650_Stop();
+  77   1      }
+  78                    /*
+  79            功    能：TM1650读字节
+  80          */
+  81          unsigned char TM1650_ReadByte()
+  82          {
+  83   1        uchar dat, i;
+  84   1        TM_SDA=1;
+  85   1        dat=0;
+  86   1        for(i=0;i<8;i++)
+  87   1        {   
+  88   2          TM_SCL=1; //时钟上沿
+  89   2          dat<<=1;
+  90   2          if(TM_SDA)
+  91   2           dat++;
+  92   2          TM_SCL=0;
+  93   2        }
+  94   1            TM_SDA=1;
+  95   1          TM_SCL=1;
+  96   1          TM_SCL=0;   
+  97   1          return dat;
+  98   1      }
+  99          /*
+ 100            功    能：TM1650读按键
+ 101          */
+ 102          unsigned char TM1650_Read_Button()
+ 103          {
+ 104   1        unsigned char key;
+ 105   1        TM1650_Start();
+ 106   1          TM1650_WriteByte(Key_Mode); //读按键指令  
+ 107   1        key=TM1650_ReadByte();
+ 108   1        TM1650_Stop();
+ 109   1        return key;
+ 110   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    120    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+C51 COMPILER V9.01   TM1650                                                                04/23/2023 15:59:06 PAGE 3   
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

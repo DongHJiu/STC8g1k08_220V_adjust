@@ -1,0 +1,301 @@
+C51 COMPILER V9.01   STC_EEPROM                                                            03/30/2023 21:11:45 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE STC_EEPROM
+OBJECT MODULE PLACED IN .\Objects\STC_EEPROM.obj
+COMPILER INVOKED BY: C:\keil5\C51\BIN\C51.EXE src\STC_EEPROM.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\src) DEBUG OBJECTEXTEND
+                    - PRINT(.\Listings\STC_EEPROM.lst) TABS(2) OBJECT(.\Objects\STC_EEPROM.obj)
+
+line level    source
+
+   1          /**************************************************************************************************
+   2          //程序名称 ：STC_EEPROM
+   3          //应用芯片 ：
+   4          //设计单位 ：
+   5          //设计作者 ：Yanggang
+   6          //创建日期 ：2011年8月8日
+   7          //修改作者 ： 
+   8          //修改日期 ： 
+   9          //版本 ： V1.0
+  10          //版权 ：
+  11          //------------------------------------------------------------------------------------------------
+  12          //程序功能描述 ： 
+  13          //--------------
+  14          //--------------
+  15          //--------------
+  16          //------------------------------------------------------------------------------------------------
+  17          **************************************************************************************************/
+  18          
+  19          /**************************************************************************************************
+  20          ** 编译预处理 ：文件包含；宏定义；变量声明；函数声明
+  21          ** 应用描述 ：
+  22          ** 其他说明 ：无
+  23          **************************************************************************************************/
+  24          
+  25          /*---------------包含头文件--------------------*/
+  26          #include"main.h"
+  27          
+  28          
+  29          
+  30          /******************************************************************
+  31           - 功能描述：打开 ISP/IAP 功能
+  32           - 隶属模块：STC_EEPROM 模块
+  33           - 函数属性：内部，供内部使用
+  34           - 参数说明：无      
+  35           - 返回说明：无
+  36           - 注：无
+  37           ******************************************************************/
+  38          void ISP_IAP_enable()
+  39          {
+  40   1        EA=0;          // 关中断  
+  41   1        IAP_CONTR&=0x18;       //0001,1000确认其余位为零
+  42   1        IAP_CONTR|=WaitTime;   // 写入硬件延时
+  43   1        IAP_CONTR|=0x80;       //ISPEN=1；允许编程改变Flash
+  44   1      }
+  45          
+  46          
+  47          /******************************************************************
+  48           - 功能描述：关闭 ISP/IAP 功能
+  49           - 隶属模块：STC_EEPROM 模块
+  50           - 函数属性：内部，供内部使用
+  51           - 参数说明：无      
+  52           - 返回说明：无
+  53           - 注：无
+  54           ******************************************************************/
+C51 COMPILER V9.01   STC_EEPROM                                                            03/30/2023 21:11:45 PAGE 2   
+
+  55          void ISP_IAP_disable()
+  56          {
+  57   1        IAP_CONTR&=0x7f;  //ISPEN = 0；禁止ISP/IAP编程改变Flash 
+  58   1        IAP_TRIG=0x00;
+  59   1        EA=1;     // 开中断
+  60   1      }
+  61          
+  62          /******************************************************************
+  63           - 功能描述：ISP/IAP公用的触发代码
+  64           - 隶属模块：STC_EEPROM 模块
+  65           - 函数属性：内部，供内部使用
+  66           - 参数说明：无      
+  67           - 返回说明：无
+  68           - 注：无
+  69           ******************************************************************/
+  70          void ISPgoon()
+  71          {
+  72   1        ISP_IAP_enable(); //打开 ISP,IAP 功能 
+  73   1        IAP_TRIG=0x5A;    //触发ISP_IAP命令字节1
+  74   1        IAP_TRIG=0xA5;    //触发ISP_IAP命令字节2
+  75   1        _nop_();
+  76   1      }
+  77          
+  78          
+  79          /******************************************************************
+  80           - 功能描述：ISP/IAP扇区擦除
+  81           - 隶属模块：STC_EEPROM 模块
+  82           - 函数属性：外部，供用户使用
+  83           - 参数说明：sector_addr:要擦除的扇区地址      
+  84           - 返回说明：无
+  85           - 注：无
+  86           ******************************************************************/
+  87          void ISP_sectorerase(unsigned int sector_addr)
+  88          {
+  89   1        unsigned int iSectorAddr;
+  90   1        iSectorAddr=(sector_addr&0xfe00);    //取扇区地址
+  91   1        IAP_ADDRH=(unsigned char)(iSectorAddr>>8);
+  92   1        IAP_ADDRL=0x00;
+  93   1      
+  94   1        IAP_CMD&=0xf8;      //清空低3位 
+  95   1        IAP_CMD|=EraseCommand;  //擦除命令3
+  96   1      
+  97   1        ISPgoon();            //触发执行  
+  98   1        ISP_IAP_disable();        // 关闭ISP,IAP功能
+  99   1      
+ 100   1      }
+ 101          
+ 102          /******************************************************************
+ 103           - 功能描述：ISP/IAP字节读取
+ 104           - 隶属模块：STC_EEPROM 模块
+ 105           - 函数属性：外部，供用户使用
+ 106           - 参数说明：byte_addr：要读取的STC_EEPROM的单元地址      
+ 107           - 返回说明：无
+ 108           - 注：无
+ 109           ******************************************************************/
+ 110          unsigned char ISP_byte_read(unsigned int byte_addr)
+ 111          {
+ 112   1        IAP_ADDRH=(unsigned char)(byte_addr>>8);   //地址赋值
+ 113   1        IAP_ADDRL=(unsigned char)(byte_addr&0x00ff);
+ 114   1      
+ 115   1        IAP_CMD&=0xf8;      //清除低3位 
+ 116   1        IAP_CMD|=RdCommand;    //写入读命令
+C51 COMPILER V9.01   STC_EEPROM                                                            03/30/2023 21:11:45 PAGE 3   
+
+ 117   1      
+ 118   1        ISPgoon();            //触发执行
+ 119   1        ISP_IAP_disable();        //关闭ISP,IAP功能
+ 120   1        return (IAP_DATA);        //返回读到的数据
+ 121   1      }
+ 122          
+ 123          
+ 124          /******************************************************************
+ 125           - 功能描述：ISP/IAP字节写入
+ 126           - 隶属模块：STC_EEPROM 模块
+ 127           - 函数属性：外部，供用户使用
+ 128           - 参数说明：byte_addr：要写入的STC_EEPROM的单元地址
+ 129                       original_data：要写入的数据      
+ 130           - 返回说明：无
+ 131           - 注：无
+ 132           ******************************************************************/
+ 133          void ISP_byte_write(unsigned int byte_addr, unsigned char original_data)
+ 134          {
+ 135   1        IAP_ADDRH = (unsigned char)(byte_addr>>8);  //取地址
+ 136   1        IAP_ADDRL = (unsigned char)(byte_addr&0x00ff);
+ 137   1      
+ 138   1        IAP_CMD&=0xf8;        //清低3位
+ 139   1        IAP_CMD|=PrgCommand;    //写命令2
+ 140   1        IAP_DATA=original_data;   //写入数据准备
+ 141   1      
+ 142   1        ISPgoon();              //触发执行
+ 143   1        ISP_IAP_disable();          //关闭IAP功能
+ 144   1      }
+ 145          
+ 146          /******************************************************************
+ 147           - 功能描述：ISP/IAP字节写并校验
+ 148           - 隶属模块：STC_EEPROM 模块
+ 149           - 函数属性：外部，供用户使用
+ 150           - 参数说明：byte_addr：要写入的STC_EEPROM的单元地址
+ 151                       original_data：要写入的数据       
+ 152           - 返回说明：无
+ 153           - 注：无
+ 154           ***************************************************************** 
+ 155          unsigned char ISP_byte_write_verify(unsigned int byte_addr, unsigned char original_data) 
+ 156          { 
+ 157             ISP_ADDRH=(unsigned char)(byte_addr>>8); //取地址
+ 158             ISP_ADDRL=(unsigned char)(byte_addr&0xff); 
+ 159            
+ 160             ISP_CMD&=0xf8;  //清低3位                
+ 161             ISP_CMD|=PrgCommand;  // 写命令2
+ 162             ISP_DATA=original_data; 
+ 163            
+ 164             ISPgoon();   // 触发执行
+ 165            
+ 166             // 开始读，没有在此重复给地址，地址不会被自动改变 
+ 167             ISP_DATA=0x00;  // 清数据传递寄存器 
+ 168            
+ 169             ISP_CMD&=0xf8;  // 清低3位
+ 170             ISP_CMD|=RdCommand;// 读命令1 
+ 171            
+ 172             ISP_TRIG=0x46;  // 触发ISP_IAP命令字节1 
+ 173             ISP_TRIG=0xb9;  // 触发ISP_IAP命令字节2 
+ 174             _nop_();   //延时                    
+ 175            
+ 176             ISP_IAP_disable();  //关闭IAP功能 
+ 177            
+ 178             if(ISP_DATA==original_data)// 读写数据校验 
+C51 COMPILER V9.01   STC_EEPROM                                                            03/30/2023 21:11:45 PAGE 4   
+
+ 179                return Ok;   //返回校验结果 
+ 180             else 
+ 181                return Error; 
+ 182          }
+ 183          */
+ 184          /******************************************************************
+ 185           - 功能描述：ISP/IAP数组写入
+ 186           - 隶属模块：STC_EEPROM 模块
+ 187           - 函数属性：外部，供用户使用
+ 188           - 参数说明：begin_addr：要写入的STC_EEPROM的单元地址
+ 189                       len：要写入的个数
+ 190                 array：指向要写入数据缓冲区的指针
+ 191           - 返回说明：无
+ 192           - 注：无
+ 193           *****************************************************************
+ 194          unsigned char ISP_arraywrite(unsigned int begin_addr,unsigned int len,unsigned char *array)
+ 195          { 
+ 196            unsigned int  i; 
+ 197            unsigned int  in_addr; 
+ 198          
+ 199            // 判是否是有效范围,此函数不允许跨扇区操作 //
+ 200            if(len>PerSector) 
+ 201            return Error; 
+ 202            in_addr=begin_addr&0x01ff; // 扇区内偏移量 
+ 203            if((in_addr+len)>PerSector) 
+ 204            return Error;                   
+ 205            in_addr=begin_addr; 
+ 206            // 逐个写入并校对 //
+ 207            for(i=0;i<len;i++) 
+ 208            { 
+ 209              // 写一个字节 //
+ 210              ISP_ADDRH=(unsigned char)(in_addr>>8); 
+ 211              ISP_ADDRL=(unsigned char)(in_addr&0x00ff); 
+ 212              ISP_DATA=array[i];  // 取数据              
+ 213              ISP_CMD&=0xf8;   // 清低3位                                 
+ 214              ISP_CMD|=PrgCommand;   //  写命令0x02   
+ 215          
+ 216              ISPgoon();              //触发执行    
+ 217              
+ 218              // 开始读，没有在此重复给地址，地址不会被自动改变 //
+ 219              ISP_DATA=0x00; // 清数据传递寄存器 
+ 220              
+ 221              ISP_CMD&=0xf8; // 清低3位 
+ 222              ISP_CMD|=RdCommand; // 读命令1 
+ 223                                        
+ 224              ISPgoon();              // 触发执行
+ 225              
+ 226                // 比较对错 //
+ 227              if(ISP_DATA!=array[i]) 
+ 228              { 
+ 229                ISP_IAP_disable(); 
+ 230                return Error; 
+ 231              } 
+ 232              in_addr++;  // 指向下一个字节 
+ 233            } 
+ 234            ISP_IAP_disable();  // 关闭IAP功能
+ 235            return Ok; 
+ 236          } 
+ 237          */
+ 238          /******************************************************************
+ 239           - 功能描述：ISP/IAP扇区读出
+ 240           - 隶属模块：STC_EEPROM 模块
+C51 COMPILER V9.01   STC_EEPROM                                                            03/30/2023 21:11:45 PAGE 5   
+
+ 241           - 函数属性：外部，供用户使用
+ 242           - 参数说明：begin_addr：要读取的STC_EEPROM的单元地址
+ 243                       len：要读取的个数
+ 244                 array：指向要存放的数据缓冲区的指针      
+ 245           - 返回说明：无
+ 246           - 注：程序对地址没有作有效性判断，请调用前事先保证他在规定范围内
+ 247           ***************************************************************** 
+ 248          void ISP_arrayread(unsigned int begin_addr,unsigned char len, unsigned char *array) 
+ 249          { 
+ 250            unsigned int iSectorAddr; 
+ 251            unsigned int i; 
+ 252            iSectorAddr=begin_addr;  //&0xfe00; 取扇区地址      
+ 253            for(i=0;i<len;i++) 
+ 254            { 
+ 255              ISP_ADDRH=(unsigned char)(iSectorAddr>>8); 
+ 256              ISP_ADDRL=(unsigned char)(iSectorAddr&0x00ff); 
+ 257                                          
+ 258              ISP_CMD&=0xf8;   // 清低3位 
+ 259              ISP_CMD|=RdCommand;  // 读命令1 
+ 260              ISP_DATA=0x00; 
+ 261                  
+ 262              ISPgoon();              // 触发执行 
+ 263                      
+ 264              array[i]=ISP_DATA; 
+ 265              iSectorAddr++; 
+ 266            } 
+ 267            ISP_IAP_disable();  // 关闭IAP功能        
+ 268          }
+ 269           */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    100    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
